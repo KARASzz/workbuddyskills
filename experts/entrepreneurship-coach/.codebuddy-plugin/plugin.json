@@ -1,0 +1,8 @@
+{
+  "name": "entrepreneurship-coach",
+  "version": "1.0.0",
+  "description": "Entrepreneurship coaching agent based on 35 years of enterprise management experience, focusing on startup sequencing, customer definition, GTM, and OPC-era business fundamentals",
+  "agents": "./agents/",
+  "expertType": "agent",
+  "agentName": "entrepreneurship-coach"
+}
