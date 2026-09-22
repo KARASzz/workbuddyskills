@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "version": "1.0.0",
-  "lastUpdated": "2026-09-04T10:36:06Z",
+  "lastUpdated": "2026-08-18T03:00:00Z",
   "author": {
     "name": "AI Expert Center",
     "source": "https://github.com/msitarzewski/agency-agents",
@@ -12146,7 +12146,7 @@
       },
       "avatar": "/avatars/KdocsDataTable.png",
       "createdAt": "2026-04-27T08:47:00Z",
-      "updatedAt": "2026-09-04T10:36:06Z",
+      "updatedAt": "2026-09-04T09:47:14Z",
       "defaultInitPrompt": {
         "zh": "帮我把这段接龙整理成表格：\n1. 张三 2份牛肉\n2. 李四 1份鸡排 3份牛肉\n3. 王五 5份鸡排",
         "en": "Turn this jielong into a table: 1. Zhang San 2x beef 2. Li Si 1x chicken 3x beef 3. Wang Wu 5x chicken"
@@ -12201,7 +12201,7 @@
       },
       "avatar": "/avatars/KdocsDocButler.png",
       "createdAt": "2026-04-27T08:47:00Z",
-      "updatedAt": "2026-09-04T10:36:06Z",
+      "updatedAt": "2026-09-04T09:47:16Z",
       "defaultInitPrompt": {
         "zh": "帮我搜一下金山文档里有没有「合同」相关的文件",
         "en": "Search my Kdocs for any files related to 'contract'"
@@ -12256,7 +12256,7 @@
       },
       "avatar": "/avatars/KdocsKnowledgeCollector.png",
       "createdAt": "2026-04-27T08:47:00Z",
-      "updatedAt": "2026-09-04T10:36:06Z",
+      "updatedAt": "2026-09-04T09:47:19Z",
       "defaultInitPrompt": {
         "zh": "帮我整理一下这些碎片笔记：\n- AI大模型趋势\n- 下周要交季报\n- 新功能上线计划\n- 竞品分析要做\n- Agent是未来方向",
         "en": "Organize these scattered notes: AI trends, quarterly report due, new feature plan, competitor analysis, Agent is the future"
@@ -12311,7 +12311,7 @@
       },
       "avatar": "/avatars/KdocsPdfToolbox.png",
       "createdAt": "2026-04-27T08:47:00Z",
-      "updatedAt": "2026-09-04T10:36:06Z",
+      "updatedAt": "2026-09-04T09:47:21Z",
       "defaultInitPrompt": {
         "zh": "帮我把这三份PDF合并成一个，按顺序拼接",
         "en": "Merge these three PDFs into one in order"
@@ -12366,7 +12366,7 @@
       },
       "avatar": "/avatars/KdocsPptCreator.png",
       "createdAt": "2026-04-27T08:47:00Z",
-      "updatedAt": "2026-09-04T10:36:06Z",
+      "updatedAt": "2026-09-04T09:47:22Z",
       "defaultInitPrompt": {
         "zh": "帮我做一个「部门Q1工作总结」的PPT，包含业绩回顾、项目进展、下季度计划",
         "en": "Create a Q1 department summary PPT covering performance review, project progress, and next quarter plan"
@@ -29712,6 +29712,193 @@
       "author": {
         "zh": "Linkfox",
         "en": "Linkfox"
+      }
+    },
+    {
+      "id": "DdDueDiligenceTeam",
+      "categoryId": "08-FinanceInvestment",
+      "displayName": {
+        "en": "AI Due Diligence Team",
+        "zh": "AI尽调专家团"
+      },
+      "profession": {
+        "en": "AI Due Diligence Team",
+        "zh": "AI尽调专家团"
+      },
+      "description": {
+        "zh": "银行对公授信尽调专家团：主理人按七步流程统筹进件/核验/画像/财务/经营/行业/风险/报告八岗协同。",
+        "en": "Bank corporate-credit due diligence team: lead orchestrates the 7-step workflow across intake, finance verification, financial/business/profile/industry analysis, risk overview, and report writing specialists."
+      },
+      "promptFile": "/plugins/dd-due-diligence-team/agents/dd-due-diligence-lead.md",
+      "avatar": "/avatars/DdDueDiligenceTeam.png",
+      "createdAt": "2026-09-16T03:24:34Z",
+      "updatedAt": "2026-09-16T04:11:21Z",
+      "defaultInitPrompt": {
+        "zh": "帮我跑一遍对公授信尽调全流程：进件解析、财务核验、专项分析、风险总览，最后生成尽调报告",
+        "en": "Run the full corporate credit due diligence workflow for my current project: intake parsing, finance verification, specialist analyses, risk overview, and the final report"
+      },
+      "expertType": "team",
+      "agentName": "dd-due-diligence-lead",
+      "plugin": "dd-due-diligence-team",
+      "tags": [
+        {
+          "en": "Due Diligence",
+          "zh": "授信尽调"
+        },
+        {
+          "en": "Credit Risk",
+          "zh": "授信风控"
+        },
+        {
+          "en": "Risk Identification",
+          "zh": "风险识别"
+        }
+      ],
+      "quickPrompts": [
+        {
+          "en": "Run the full corporate credit due diligence workflow for my current project: intake parsing, finance verification, specialist analyses, risk overview, and the final report",
+          "zh": "帮我跑一遍对公授信尽调全流程：进件解析、财务核验、专项分析、风险总览，最后生成尽调报告"
+        },
+        {
+          "en": "Check the status and material gaps of my current due diligence project, and list what to do next",
+          "zh": "查一下当前尽调项目的状态和材料缺口，列出下一步要做的事"
+        },
+        {
+          "en": "My intake materials are ready - parse and recognize them, check for missing items, then proceed to finance verification",
+          "zh": "进件材料齐了，帮我解析识别、查漏补缺，然后推进到财务核验"
+        }
+      ],
+      "members": [
+        {
+          "id": "dd-due-diligence-lead",
+          "displayName": {
+            "en": "Lead",
+            "zh": "尽调总控"
+          },
+          "profession": {
+            "en": "Due Diligence Orchestrator",
+            "zh": "尽调流程总控"
+          },
+          "avatar": "/avatars/DdDueDiligenceTeam-DdDueDiligenceLead.png",
+          "promptFile": "/plugins/dd-due-diligence-team/agents/dd-due-diligence-lead.md",
+          "role": "lead"
+        },
+        {
+          "id": "intake-material-custodian",
+          "displayName": {
+            "en": "Zhen",
+            "zh": "甄齐全"
+          },
+          "profession": {
+            "en": "Intake Material Custodian",
+            "zh": "进件材料管家"
+          },
+          "avatar": "/avatars/DdDueDiligenceTeam-IntakeMaterialCustodian.png",
+          "promptFile": "/plugins/dd-due-diligence-team/agents/intake-material-custodian.md",
+          "role": "member"
+        },
+        {
+          "id": "finance-verify-specialist",
+          "displayName": {
+            "en": "Verona",
+            "zh": "秦核真"
+          },
+          "profession": {
+            "en": "Finance Verification Specialist",
+            "zh": "财务核验专员"
+          },
+          "avatar": "/avatars/DdDueDiligenceTeam-FinanceVerifySpecialist.png",
+          "promptFile": "/plugins/dd-due-diligence-team/agents/finance-verify-specialist.md",
+          "role": "member"
+        },
+        {
+          "id": "financial-analysis-specialist",
+          "displayName": {
+            "en": "Cha",
+            "zh": "察盈亏"
+          },
+          "profession": {
+            "en": "Financial Analysis Specialist",
+            "zh": "财务分析专员"
+          },
+          "avatar": "/avatars/DdDueDiligenceTeam-FinancialAnalysisSpecialist.png",
+          "promptFile": "/plugins/dd-due-diligence-team/agents/financial-analysis-specialist.md",
+          "role": "member"
+        },
+        {
+          "id": "enterprise-profiling-expert",
+          "displayName": {
+            "en": "Zha",
+            "zh": "查明悉"
+          },
+          "profession": {
+            "en": "Enterprise Profiling Expert",
+            "zh": "企业画像专家"
+          },
+          "avatar": "/avatars/DdDueDiligenceTeam-EnterpriseProfilingExpert.png",
+          "promptFile": "/plugins/dd-due-diligence-team/agents/enterprise-profiling-expert.md",
+          "role": "member"
+        },
+        {
+          "id": "business-analysis-expert",
+          "displayName": {
+            "en": "Jian",
+            "zh": "鉴产销"
+          },
+          "profession": {
+            "en": "Business Analysis Expert",
+            "zh": "经营分析专家"
+          },
+          "avatar": "/avatars/DdDueDiligenceTeam-BusinessAnalysisExpert.png",
+          "promptFile": "/plugins/dd-due-diligence-team/agents/business-analysis-expert.md",
+          "role": "member"
+        },
+        {
+          "id": "industry-analysis-expert",
+          "displayName": {
+            "en": "Hang",
+            "zh": "杭知微"
+          },
+          "profession": {
+            "en": "Industry Analysis Expert",
+            "zh": "行业分析专家"
+          },
+          "avatar": "/avatars/DdDueDiligenceTeam-IndustryAnalysisExpert.png",
+          "promptFile": "/plugins/dd-due-diligence-team/agents/industry-analysis-expert.md",
+          "role": "member"
+        },
+        {
+          "id": "risk-compliance-expert",
+          "displayName": {
+            "en": "Fang",
+            "zh": "方守正"
+          },
+          "profession": {
+            "en": "Risk Overview Expert",
+            "zh": "风险总览专家"
+          },
+          "avatar": "/avatars/DdDueDiligenceTeam-RiskComplianceExpert.png",
+          "promptFile": "/plugins/dd-due-diligence-team/agents/risk-compliance-expert.md",
+          "role": "member"
+        },
+        {
+          "id": "report-writer",
+          "displayName": {
+            "en": "Reagan",
+            "zh": "文报章"
+          },
+          "profession": {
+            "en": "Report Writing Specialist",
+            "zh": "报告撰写专员"
+          },
+          "avatar": "/avatars/DdDueDiligenceTeam-ReportWriter.png",
+          "promptFile": "/plugins/dd-due-diligence-team/agents/report-writer.md",
+          "role": "member"
+        }
+      ],
+      "author": {
+        "zh": "Tencent FinCloud",
+        "en": "Tencent FinCloud"
       }
     }
   ]

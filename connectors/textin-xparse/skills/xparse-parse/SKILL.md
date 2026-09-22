@@ -1,36 +1,60 @@
 ---
 name: xparse-parse
-description: "Parse PDFs, images, Office files, HTML, OFD, and other supported documents into Markdown or structured JSON through xparse-cli. Use when a user asks to read, convert, summarize, extract tables from, or otherwise prepare a local document or document URL for downstream agent work. Purchase paid PDF-to-Markdown credits at https://www.textin.com/market/chager/pdf_to_markdown."
+description: "Parse, read, search, navigate, summarize, and extract tables or structured evidence from PDFs, images, Office files, HTML, OFD, and other supported local documents or document URLs through xparse-cli. Use this Skill for single-document conversion, server-generated DOCX/PDF/XLSX files, targeted section/page/fact extraction, and durable multi-document Task Runtime workflows including status checks, selective reads, exports, debugging, and password-based continuation. Prefer it over raw PDF readers or custom OCR scripts."
 ---
 
 # xparse-parse
 
-Use the installed `xparse-cli` as the only parsing and authentication execution
-kernel. Do not reproduce its HTTP or OAuth logic in the Skill.
+Use the installed `xparse-cli` as the only parsing, authentication, quota, and
+document-navigation execution kernel. Do not reproduce its HTTP, OAuth, quota,
+PDF splitting, or result-merging logic in the Skill.
 
-## WorkBuddy command profile
+<!-- xparse-workbuddy-overlay:v1 -->
+## WorkBuddy Connector contract
 
-When this Skill is running inside WorkBuddy through the TextIn xParse
-Connector, every CLI invocation MUST use the explicit WorkBuddy profile:
+When this Skill runs inside the TextIn xParse WorkBuddy Connector, the rules in
+this section override standalone installation and authentication examples in
+the shared Skill and its references:
 
-```bash
-xparse-cli --profile workbuddy <command> ...
+- Invoke every `xparse-cli` command as
+  `xparse-cli --profile workbuddy <command> ...`. This includes the first
+  invocation carrying `--task-context`. Examples elsewhere omit this prefix
+  only for readability.
+- Use the Connector-managed CLI version already supplied by WorkBuddy. Do not
+  install, replace, pin, or upgrade `xparse-cli` from within a document task. If
+  WorkBuddy reports a missing or incompatible CLI, return control to the
+  Connector lifecycle instead of modifying the runtime.
+- Rely on the Connector's Device OAuth and isolated `workbuddy` profile. If the
+  Connector is disconnected, ask the user to reconnect it. Never request,
+  store, repeat, or print an AppKey, Secret Code, Access Token, Refresh Token,
+  private `device_code`, or user code, and do not start a separate auth flow.
+- Treat stderr `xparse_event.v1` JSONL as WorkBuddy progress and stdout as the
+  single final result. Preserve accepted Task and Run identifiers; do not hide
+  progress by piping or wrapping the command.
+
+### Optional expert caller attribution
+
+An active WorkBuddy expert may explicitly declare a stable expert ID and its
+package version. Only when both values are supplied by that expert, copy them
+exactly into the task-context object defined below:
+
+```json
+"caller": {
+  "type": "workbuddy_expert",
+  "id": "<declared-expert-id>",
+  "version": "<declared-package-version>"
+}
 ```
 
-For example, parse with
-`xparse-cli --profile workbuddy parse <INPUT> --api free`. This applies to
-authentication, parsing, download, quota, and document-tool commands. Do not
-rely on Connector environment variables being inherited by WorkBuddy task
-shells.
+Omit `caller` for ordinary Connector use or when either value is absent. Never
+infer, search for, reuse from another task, or invent an expert identity. Do not
+put `prompt_request_id` in the task-context file: WorkBuddy owns and transmits
+that host request identifier independently.
 
-Outside WorkBuddy, keep using the standalone `xparse-cli <command>` form.
+## Task context
 
-### WorkBuddy task context
-
-For every new user request, create one private JSON file before the first
-xParse command. Use WorkBuddy's file-writing capability, set the file mode to
-`0600`, and do not put the JSON content in shell arguments, `echo`, or a
-heredoc:
+For every new user request, create one private `0600` JSON file before the
+first xParse command:
 
 ```json
 {
@@ -40,140 +64,339 @@ heredoc:
 }
 ```
 
-- Preserve the user's wording; do not translate it.
-- Keep `tool_call_reason` to a brief operational reason. Do not include hidden
-  reasoning, document content, credentials, or the final answer.
-- Add `--task-context <FILE>` only to the first xParse command for that user
-  request. Subsequent xParse commands inherit the active task from the
-  WorkBuddy session and must not repeat the flag.
-- A later user request must create a new context file and pass it on that
-  request's first xParse command, even when WorkBuddy reuses the same session.
-- Delete the temporary context file after the first CLI invocation. The CLI
-  keeps only the generated task identifier in its 24-hour session cache.
+- Preserve the user's wording and keep the operational reason brief.
+- Never include hidden reasoning, credentials, document content, or the final answer.
+- Pass `--task-context <FILE>` only on the first xParse invocation for that request.
+- Delete the temporary file after that invocation. Later commands inherit the task.
+- Do not pass inline JSON through shell arguments, `echo`, or a heredoc.
 
-Example first call:
+## Command integrity and structured error gate
+
+Run every operational `xparse-cli` invocation as a standalone shell command.
+Do not pipe it through `head`, `tail`, `grep`, or another command, and do not
+append cleanup, printing, file reads, or other shell commands that can replace
+its exit status. Perform task-context cleanup in a separate shell call.
+
+For every failed command, parse the final stderr object whose `schema_version`
+is `xparse_error.v1`. Treat that object as failure even if a shell wrapper
+reports exit code 0. Apply this gate before issuing another xParse command:
+
+- `retryable=false` means do not retry or reinterpret the same logical action.
+  Follow only the declared `next_action`. For `CONTACT_SUPPORT`, report the
+  error and preserved identifiers, then issue no more xParse commands for the
+  current request.
+- `retryable=true` permits at most one Agent-layer retry of the same logical
+  action. Keep the same Task, Run, Resource, and `operation_id` where present.
+- Changing flags, authentication options, selector form, Resource identifier,
+  timing, or switching between `task read` and `task export` does not create a
+  new logical action or reset its retry budget.
+- Do not run diagnostic xParse commands unless the Task state or `next_action`
+  explicitly calls for them. Goal completion pressure is not a recovery signal;
+  a correct failure report completes the Agent action.
+
+After a non-retryable failure, another attempt is allowed only after the user
+confirms an external remediation or explicitly requests a new action. Reuse the
+preserved Task and Run identifiers; never recreate completed server work.
+
+## Free, free-package, and paid routing
+
+Use `--api auto` by default. The CLI queries the service quota before parsing and
+uses the current server response as the authority instead of relying on a Skill
+snapshot.
+
+| Mode | CLI behavior | Use it when |
+|------|--------------|-------------|
+| `--api auto` | Uses the daily free API allowance first. When quota reports an AppKey-authenticated free package with sufficient `free_remain_count`, it can use that package through the existing authenticated route. | Default for supported PDF and image work. |
+| `--api free` | Forces the free endpoint and does not use the authenticated free-package route. | The user explicitly requires the free endpoint only. |
+| `--api paid` | Forces the paid endpoint and follows the service's existing package/balance billing behavior. | The user explicitly approves paid use, or approves it after learning that the format requires the paid API. |
+
+Authentication is identity, not permission to spend. Never choose `--api paid`
+only because OAuth or AppKey credentials exist.
+
+Run `xparse-cli quota --output json` when the user asks about quota, when a routing failure
+needs explanation, or before proposing a paid retry. Read all returned facts:
+
+- daily free pages remaining and reset time;
+- whether the request is authenticated;
+- authenticated free-package total, historical used count, and current
+  `free_remain_count` when present (routing uses only `free_remain_count`);
+- maximum pages and file size per request.
+
+Do not cache or calculate an allowance in the Skill. `parse --api auto` performs
+its own quota preflight, and the parse response remains authoritative if quota
+changes between inspection and execution. The Skill must not promise stronger
+billing guarantees than the existing server provides.
+
+Device OAuth and AppKey are different identities. If quota returns
+`authenticated=false` or omits `free_package`, do not infer package access from
+an OAuth login indicator. Treat only fields in the current quota response as
+available.
+
+The free endpoint supports PDF and images. Office, HTML, OFD, and other formats
+may require `--api paid`; explain this and obtain the user's approval before
+switching modes. If all reported free sources are insufficient, stop and explain
+the current quota rather than silently retrying as paid.
+
+## Choose the workflow
+
+Choose by input shape and durability, not by whether authentication already
+exists:
+
+Workflow selection and billing selection are independent decisions. `Task`
+versus `parse` is chosen from the request's input shape and durability needs;
+`auto`, `free`, and `paid` choose only the billing route. A quota, eligibility,
+authorization, funding, or format outcome must never change an accepted
+multi-document Task into individual `parse` calls. Only an explicit user request
+that narrows the original scope to a genuinely new one-document action may be
+treated as a new `parse` operation.
+
+- Use `parse` for one document or URL when the user needs an immediate result,
+  conversion, or local outline/search navigation.
+- Use the durable Task Runtime for two or more local documents, or when the user
+  explicitly needs a persistent Task ID, later status checks, selective result
+  reads, exports, debugging, or continuation. A one-file request can therefore
+  still be a Task when durability is explicit.
+- Task Runtime control-plane routes and OAuth authentication are available in
+  both domestic and overseas environments. Free-first Task billing is a
+  separate capability: if the selected environment returns
+  `TASK_FREE_MODE_UNAVAILABLE`, stop and explain it. Never replace the Task with
+  serial `parse` calls or silently switch to paid execution.
+
+### Durable multi-document Task Runtime
+
+For local files, start one server-persisted Task instead of launching multiple
+`parse` commands:
 
 ```bash
-xparse-cli --profile workbuddy --task-context <CONTEXT_FILE> parse <INPUT> --api free
+xparse-cli task run --files '<GLOB>' --api auto
 ```
 
-## API selection
+`--api auto` is free-first and fails closed: it does not silently create a paid
+Task. Use `--api paid` only after the user explicitly approves paid service
+behavior. Do not parallelize individual `parse` commands for inputs that belong
+to one Task.
 
-- Default to the free API and include `--api free` in every `parse` command.
-- Use `--api paid` only when the user explicitly asks to use the paid API.
-- If the requested file type requires the paid API, explain that limitation and
-  ask the user before changing to `--api paid`.
-- Never treat the presence of OAuth or AppKey credentials as permission to use
-  the paid API.
+`task run` returns after the server accepts the Run. When structured progress
+is enabled, stderr is an `xparse_event.v1` JSONL stream: `run_accepted` exposes
+the accepted Task/Run identity immediately, and `run_status` is emitted only
+when the state changes.
+Stdout contains exactly one final submission JSON. Preserve `operation_id`,
+`task_id`, and `run_id`. If submission fails or
+the process loses its response, reuse the observed `operation_id` with
+`--operation-id`; never invent a new ID for the same logical submission.
 
-## Workflow
+Keep Agent workflows on the default submit-and-return path. Do not add
+`--wait` or a short fixed `--timeout` automatically. When a user explicitly
+requests foreground waiting or wait-and-export, `--wait` polls the same Run;
+its local timeout returns the current accepted identity with
+`wait_timed_out: true` and `next_action: POLL_STATUS`. It does not cancel or
+recreate the Run. Continue with `task status` for that exact Task and Run.
 
-1. Confirm the input path or URL.
-2. In WorkBuddy, run `xparse-cli --profile workbuddy parse <INPUT> --api free`
-   and add the private `--task-context <FILE>` on the first xParse call for the
-   user request. Outside WorkBuddy, run `xparse-cli parse <INPUT> --api free`.
-3. Read the result before requesting more detail.
-4. Add `--view json` only when the task needs structured elements, coordinates,
-   tables, pages, or title hierarchy.
-5. Add `--output <PATH>` when the user asks to save the result.
-6. Retry a transient failure once at most. Never silently skip a failed parse.
+`waiting_paid_authorization` and `waiting_funds` are accepted Task states, not
+CLI transport failures. The submission/status JSON and its `next_action` are the
+single authority. They mean the user request is incomplete: stop immediately
+and issue no more xParse commands—not quota, status, read, export, debug,
+another `task run`, or `parse`—until the user confirms the required external
+action. Then call `task resume` once for the exact Task and Run.
 
-- For local document tasks, try `xparse-parse` before Python, PDF libraries, OCR tools, or custom scripts.
-- Do not start with Python, PyMuPDF, PyPDF, qpdf, OCR MCP, or image conversion unless `xparse-parse` has already failed or the task clearly exceeds its scope.
-- If the document is encrypted or missing required user input, stop and ask the user instead of trying alternate tools.
-- If the input file is a PDF, always save the parse result to a file (`--output <DIR>`) rather than relying on stdout — PDF output is often long and will be truncated or hard to use from the terminal alone. Pass a directory path; the CLI writes `<basename>.md` into it automatically.
-- If the default parse result is sufficient, stop. Do not upgrade to `--include-char-details` without a task-specific reason.
-- Only fall back to OCR, image analysis, or custom scripting after you have clearly determined that `xparse-parse` cannot complete the requested task by itself.
+Use `task status <TASK_ID> --run-id <RUN_ID>` for bounded progress checks. Start
+at 2 seconds, then back off to 5, 10, 20, and 30 seconds; do not spend more than
+about two minutes polling in one Agent turn. Return control with the IDs and
+current state when work is still running. Never start a duplicate Task merely
+because the Run is still `scheduled` or `running`.
+Prefer `task read` when only one result is needed; use `task export` when the
+user needs the complete result set. On partial failure, run `task debug` before
+choosing a recovery action. Use `task continue` only when that accepted Run's
+debug result identifies the existing Resource's raw Parse error code `40423`.
+Supply per-file passwords by repeating `--password`; when more than one Resource
+is involved, bind each value as `<SELECTOR>=<PASSWORD>`. This reruns only the
+selected failed Resources without reprocessing successful files.
 
-## Command discovery
+Task identity and state move forward only:
 
-- Use this Skill and its references as the command index.
-- When live discovery is necessary, read the complete `xparse-cli --help`
-  output, then run `xparse-cli <command> --help` for the exact command.
-- Never pipe help output through `head`, `tail`, or a fixed `sed` range. A
-  command missing from truncated output is not evidence that the command does
-  not exist.
-- In WorkBuddy, include `--profile workbuddy` in discovery commands too.
+```text
+no identifiers -> task run once
+operation_id + PASSWORD_INPUT_REQUIRED -> ask for the named passwords, then replay the originating task run or task rerun --mode new-files once with that ID and the returned selectors
+operation_id only after an ambiguous submission -> retry task run once with that ID
+task_id + run_id -> task status for that exact Run
+waiting_paid_authorization -> stop; after user approval, resume that exact Run
+waiting_funds -> stop; after confirmed funding, resume that exact Run
+completed -> task read or task export for that exact Run
+non-retryable result-access failure -> report and stop
+```
 
-## Setup
+`PASSWORD_INPUT_REQUIRED` permits only one documented correction replay of the
+originating command with the same `operation_id`. For initial submission that
+command is `task run`; for new files under an existing Task it is `task rerun
+--mode new-files`, and the error may legitimately include that existing
+`task_id`. The CLI transparently reuses ready uploads; the Agent must not track
+File Asset IDs or decide which files to upload. An `operation_id` without a
+Task/Run ID after another ambiguous submission permits one unchanged replay.
+Once a new `task_id` or `run_id` has been accepted for a logical submission,
+never return to `task run` for it. A `task read` or `task export`
+failure must not fall back to a new Task, serial `parse`, cached results, an
+alternate selector, or a different Run. Use `task debug` only for
+`partial_failed`/`failed`, not to investigate a completed Run whose result
+access returned a non-retryable error.
 
-Check if installed: `xparse-cli version`
+Read [task-runtime.md](references/task-runtime.md) before starting, inspecting,
+or recovering a durable Task.
 
-If `command not found` after install, try the absolute path: `~/.local/bin/xparse-cli version`
+### Full document or conversion
 
-Update to latest version: `xparse-cli update`
-
-If available, skip to **Quick start** below. If not found, install:
-
-| Platform | Command |
-|----------|---------|
-| Linux / macOS | ` source <(curl -fsSL https://dllf.intsig.net/download/2026/Solution/xparse-cli/install.sh) ` |
-| Windows (PowerShell) | `irm https://dllf.intsig.net/download/2026/Solution/xparse-cli/install.ps1 \| iex` |
-
-
-## Quick start
-
-Zero config — free API, no registration needed. Supports **PDF and images** only.
+Use one parse command:
 
 ```bash
-xparse-cli parse report.pdf --api free              # Markdown → stdout
+xparse-cli parse <INPUT> --api auto
 ```
 
-> For Office, HTML, OFD, and other formats, [configure paid API credentials](references/textin-key-setup.md) first.
+For PDFs, pass an output directory so long Markdown is not truncated in
+terminal output. The CLI creates the directory when it does not exist:
 
-## Quick Reference
+```bash
+xparse-cli parse report.pdf --api auto --output <DIR>
+```
+
+Read the saved result before requesting more detail. Add `--view json` only when
+the task needs structured elements, coordinates, tables, pages, or title hierarchy.
+
+### Server-generated document exports
+
+When the user explicitly asks to export one document as DOCX, PDF, or XLSX,
+explain that this requires the paid parse endpoint and obtain paid approval
+before running the command. Request only the formats the user needs:
+
+```bash
+xparse-cli parse <INPUT> --api paid --export docx,pdf,xlsx --output <DIR>
+```
+
+- `--export` accepts `docx`, `pdf`, and `xlsx`; pass a comma-separated list or
+  repeat the flag. The CLI removes duplicates, and XLSX automatically uses the
+  table export scope.
+- `--api paid` and `--output <DIR>` are required when `--export` is present.
+  Immediately before downloading, the CLI resolves the selected AppKey or OAuth
+  identity again so a long parse can refresh an expired OAuth token. It then
+  downloads each successful export and verifies the saved file size.
+- The output directory contains the ordinary parse result plus
+  `<basename>.docx`, `<basename>.pdf`, and/or `<basename>.xlsx`. Read or return
+  those local files as the task result. If a name would overwrite the input,
+  the CLI uses `<basename>.export.<format>`. Do not expose backend download
+  URLs, `file_id` values, or authorization details to the user.
+- This single-document feature is separate from `task export`, which exports
+  the Markdown results of a durable multi-document Task.
+
+### Targeted reading, search, or extraction
+
+For a local document, use:
+
+```text
+get_doc_info -> parse the complete document -> navigate -> extract
+```
+
+1. Run `get_doc_info <FILE>` and retain its exact `doc_id`.
+2. Run `parse <FILE> --api auto` without `--page-range`. A successful complete
+   local parse writes the navigation cache automatically.
+3. Use `get_outline`, `search_text`, or `read_pages` to locate relevant content.
+4. Batch the required `read_content` calls after navigation is complete.
+
+There is no separate cache-preparation command. A successful complete local
+`parse` is the only preparation step.
+
+Page-range parses intentionally do not replace the complete-document navigation
+cache. URL parses have no stable local `doc_id`, so use their direct parse output
+instead of local navigation commands.
+
+Read [navigation.md](references/navigation.md) before performing targeted
+navigation or extraction.
+
+## Efficiency and fallback rules
+
+- Plan all navigation before reading sections; target no more than eight
+  `read_content` calls per task and issue independent reads together.
+- Prefer `search_text` for names, dates, amounts, and percentages. Read a full
+  section only when its surrounding prose or table structure is needed.
+- If an outline is truncated, drill down with `--parent-id`; do not guess IDs.
+- Keep unrelated one-document parses serial. For a multi-document batch, use
+  one durable Task instead of parallel `parse` commands.
+- Retry a transient service failure once at most and only when its structured
+  error says `retryable=true`. Stop immediately on any non-retryable service
+  failure. Never silently skip a failure.
+- For local documents, try this Skill before Python, PyMuPDF, pdfplumber, qpdf,
+  OCR tools, image conversion, or custom scripts.
+- If a document is encrypted or required input is missing, ask the user instead
+  of trying alternate tools.
+- Only fall back after xparse-cli clearly cannot complete the task, and explain why.
+
+## Quick reference
 
 | Goal | Command |
 |------|---------|
-| Markdown to stdout | `xparse-cli parse <FILE> --api free` |
-| JSON to stdout | `xparse-cli parse <FILE> --api free --view json` |
-| Save markdown | `xparse-cli parse <FILE> --api free --view markdown --output <DIR>` |
-| Save JSON | `xparse-cli parse <FILE> --api free --view json --output <DIR>` |
-| Page range | `xparse-cli parse <FILE> --api free --page-range 1-5` |
-| Encrypted doc | `xparse-cli parse <FILE> --api free --password <PWD>` |
-| Character details (bbox, confidence, candidate per char) | `xparse-cli parse <FILE> --api free --view json --output <DIR> --include-char-details` |
-| Show free quota | `xparse-cli quota` |
-| Explicit paid OAuth | `xparse-cli parse <FILE> --api paid --auth-method oauth` |
-| Explicit paid AppKey | `xparse-cli parse <FILE> --api paid --auth-method app-key` |
+| Parse with automatic free routing | `xparse-cli parse <FILE> --api auto` |
+| Force free endpoint only | `xparse-cli parse <FILE> --api free` |
+| Explicit paid parse | `xparse-cli parse <FILE> --api paid --auth-method oauth` |
+| Save Markdown | `xparse-cli parse <FILE> --api auto --output <DIR>` |
+| Save JSON | `xparse-cli parse <FILE> --api auto --view json --output <DIR>` |
+| Export one document as DOCX/PDF/XLSX | `xparse-cli parse <FILE> --api paid --export docx,pdf,xlsx --output <DIR>` |
+| Parse selected pages only | `xparse-cli parse <FILE> --api auto --page-range 1-5` |
+| Encrypted document | `xparse-cli parse <FILE> --api auto --password <PWD>` |
+| Character details | `xparse-cli parse <FILE> --api auto --view json --output <DIR> --include-char-details` |
+| Show current quota | `xparse-cli quota --output json` |
+| Run a durable local-file Task | `xparse-cli task run --files '<GLOB>' --api auto` |
+| Rerun every Resource under a Task | `xparse-cli task rerun <TASK_ID> --mode all` |
+| Add files and create a new Run | `xparse-cli task rerun <TASK_ID> --mode new-files --files '<GLOB>'` |
+| Rerun selected Resources | `xparse-cli task rerun <TASK_ID> --mode selected-files --resource-id <RESOURCE_ID>` |
+| Check an exact Task Run | `xparse-cli task status <TASK_ID> --run-id <RUN_ID>` |
+| Read one Task result | `xparse-cli task read <TASK_ID> <FILE_OR_RESOURCE> --run-id <RUN_ID>` |
+| Export all completed results | `xparse-cli task export <TASK_ID> --run-id <RUN_ID> --output <DIR>` |
+| Inspect per-file failures | `xparse-cli task debug <TASK_ID> --run-id <RUN_ID>` |
+| Continue one existing Resource after Run error 40423 | `xparse-cli task continue <TASK_ID> --password <PASSWORD>` |
+| Continue multiple existing Resources after Run error 40423 | `xparse-cli task continue <TASK_ID> --password <SELECTOR>=<PASSWORD> --password <SELECTOR>=<PASSWORD>` |
+| Resume after paid approval | `xparse-cli task resume <TASK_ID> --run-id <RUN_ID> --approve-paid` |
+| Resume after funding | `xparse-cli task resume <TASK_ID> --run-id <RUN_ID> --after-funding` |
+| Start local navigation | `xparse-cli get_doc_info <FILE>` |
+| Show cached outline | `xparse-cli get_outline <DOC_ID>` |
+| Search cached text | `xparse-cli search_text <DOC_ID> <PATTERN>` |
 
-> `--output` only accepts a **directory path**. The CLI auto-generates the output filename as `<basename>.md` or `<basename>.json` inside that directory. The directory must already exist.
-
-Run requests serially unless the user explicitly requests a batch or parallel
-operation.
+`--output` accepts a directory, not an output filename. The CLI creates a missing
+directory and writes `<basename>.md` or `<basename>.json` inside it.
 
 ## Authentication boundary
 
-- In WorkBuddy, rely on the Connector's Device OAuth login and isolated
-  `workbuddy` profile. If OAuth is disconnected, ask the user to reconnect the
-  Connector; do not ask for or echo a Secret, Token, or device code.
-- For standalone CLI use, support AppKey, Device OAuth, and browser PKCE through
-  the formal CLI commands documented in
+- The CLI supports AppKey, Device OAuth, and browser PKCE as documented in
   [authentication.md](references/authentication.md).
 - Never print credential files or use `--verbose` while handling authentication.
-- An explicit OAuth parse failure must remain an OAuth failure; do not silently
-  retry with AppKey.
+- An explicitly selected authentication method must fail as that method; do not
+  silently retry with another credential type.
 
-## Routing and stopping rules
+## Setup and command discovery
 
-1. Confirm the document should be parsed with `xparse-parse`
-2. Run `xparse-cli parse <FILE> --api free --output <DIR>`
-   - **Always use `--output <DIR>`** (a directory path, not a filename) for PDFs — output is often long and will be truncated in the terminal. Example: `xparse-cli parse report.pdf --output ./` saves `report.md` in the current directory.
-3. Read the result file
-4. Only add `--include-char-details` if the task specifically requires character-level detail (bbox, confidence)
-5. If required input is missing, stop and ask the user
-6. If `xparse-parse` clearly cannot solve the task, explain why before switching tools
+Check installation with `xparse-cli version`. The package requires Node.js 18
+or newer and can be installed with:
 
-Stop on unsupported or corrupt files, invalid credentials, exhausted quota, or
-repeated service failure. Retry a transient service failure once at most.
+```bash
+npm i -g xparse-cli
+```
+
+For users in China, use the npmmirror registry:
+
+```bash
+npm i -g xparse-cli --registry=https://registry.npmmirror.com
+```
+
+Use this Skill and its references as the command index. When live discovery is
+necessary, read complete `xparse-cli --help`, then the complete help for the exact
+command. Do not truncate help output with `head`, `tail`, or a fixed `sed` range.
+
+Stop on unsupported or corrupt files, invalid credentials, exhausted quota,
+missing paid approval, any non-retryable service failure, or a transient
+failure after its single allowed Agent-layer retry.
 
 ## References
 
-- [authentication.md](references/authentication.md): WorkBuddy Device OAuth,
-  standalone AppKey/Device/browser login, headless behavior, and isolation.
-- [cli-guidance.md](references/cli-guidance.md): output modes, limits, and
-  common commands.
-- [api-reference.md](references/api-reference.md): parameters, response fields,
-  and service error codes.
-- [error-handling.md](references/error-handling.md): retry and stop decisions.
-- [textin-key-setup.md](references/textin-key-setup.md): standalone legacy
-  AppKey setup.
+- [navigation.md](references/navigation.md): targeted outline, search, page, and content workflow.
+- [task-runtime.md](references/task-runtime.md): durable multi-file routing, states, result access, and recovery.
+- [authentication.md](references/authentication.md): AppKey, Device OAuth, and browser authentication.
+- [cli-guidance.md](references/cli-guidance.md): modes, output, parameters, and limits.
+- [api-reference.md](references/api-reference.md): response fields and service error codes.
+- [error-handling.md](references/error-handling.md): retry, stop, and paid-approval decisions.
+- [textin-key-setup.md](references/textin-key-setup.md): standalone legacy AppKey setup.

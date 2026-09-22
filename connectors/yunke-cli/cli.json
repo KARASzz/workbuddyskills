@@ -4,7 +4,7 @@
     "linux": "npm install -g @yunkeai/yunke-cli",
     "win32": "npm install -g @yunkeai/yunke-cli"
   },
-  "runtime": { "type": "node", "version": "^22.0.0" },
+  "runtime": { "type": "node", "version": ">=22" },
   "npmRegistry": "https://registry.npmmirror.com",
   "env": { "YUNKE_PC_OAUTH_BASE_URL": "https://crm.yunkecn.com/pc" },
   "auth": {

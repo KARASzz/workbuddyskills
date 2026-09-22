@@ -63,6 +63,10 @@ def plan_batches(
     max_batch_size: int = MAX_SERVICE_BATCH_SIZE,
     request_id_factory: Callable[[], object] = uuid.uuid4,
 ) -> list[dict[str, object]]:
+    """将主图/详情图稳定编号切分为不超过 16 张的批次，并为每批生成 request_id。
+
+    该函数为 skill 执行逻辑的本地辅助函数，供参考和未来复用，不通过 CLI 暴露。
+    """
     if (
         isinstance(max_batch_size, bool)
         or not isinstance(max_batch_size, int)
@@ -92,6 +96,10 @@ def aggregate_estimates(
     batch_plans: Sequence[Mapping[str, object]],
     estimates: Mapping[str, Mapping[str, object]],
 ) -> dict[str, object]:
+    """按批次汇总预估积分并返回仅含公开字段的报价结果。
+
+    该函数为 skill 执行逻辑的本地辅助函数，供参考和未来复用，不通过 CLI 暴露。
+    """
     total: int | float = 0
     public_estimates: list[dict[str, object]] = []
     for batch in batch_plans:
@@ -125,6 +133,10 @@ def map_task_items(
     stable_ids: Sequence[str],
     items: Sequence[Mapping[str, object]],
 ) -> list[dict[str, object]]:
+    """按服务返回的批内 index 将稳定编号映射回任务项。
+
+    该函数为 skill 执行逻辑的本地辅助函数，供参考和未来复用，不通过 CLI 暴露。
+    """
     seen: set[int] = set()
     mapped_items: list[dict[str, object]] = []
     for item in items:
@@ -147,6 +159,10 @@ def _normalized_key(key: object) -> str:
 
 
 def redact_sensitive(value: object) -> object:
+    """递归脱敏映射/列表中的敏感键（_SENSITIVE_KEYS），避免凭据进入输出。
+
+    该函数为 skill 执行逻辑的本地辅助函数，供参考和未来复用，不通过 CLI 暴露。
+    """
     if isinstance(value, Mapping):
         return {
             key: "[REDACTED]"
@@ -251,8 +267,8 @@ def deliver_results(
                         if downloaded_bytes > MAX_DELIVERY_BYTES:
                             raise ValueError("download exceeds 30 MiB")
                         output_file.write(chunk)
-            os.replace(temporary_path, output_path)
-            temporary_path = None
+                os.replace(temporary_path, output_path)
+                temporary_path = None
         except Exception:
             if temporary_path is not None:
                 temporary_path.unlink(missing_ok=True)
